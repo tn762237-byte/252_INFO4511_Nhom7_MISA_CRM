@@ -97,7 +97,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="main-title">🏢 QUẢN LÝ KHÁCH HÀNG MISA</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">QUẢN LÝ KHÁCH HÀNG MISA</div>', unsafe_allow_html=True)
 
 # Flash messages toàn cục
 if "flash_success" in st.session_state:
@@ -277,7 +277,7 @@ if menu == "Nhập thông tin khách hàng":
     with f2:
         notes = st.text_area("Ghi chú", max_chars=500, placeholder="Ghi chú tùy chọn", key=f"add_notes_{fv}")
 
-    save_clicked = st.button("💾 Lưu khách hàng", type="primary")
+    save_clicked = st.button("Lưu khách hàng", type="primary")
     msg_area = st.empty()
 
     if "add_success_msg" in st.session_state:
@@ -463,7 +463,7 @@ elif menu == "Cập nhật thông tin khách hàng":
             days_left = (expiry_date - date.today()).days
             st.success(f"✓ Còn {days_left} ngày")
 
-    # ── Thông tin tài chính ───────────────────────────────────────────────
+    # Thông tin tài chính
     st.subheader("Thông tin tài chính")
 
     b1, b2 = st.columns([1, 2])
@@ -481,7 +481,7 @@ elif menu == "Cập nhật thông tin khách hàng":
             "Ghi chú", value=c.get("notes", ""), max_chars=500, key=f"upd_notes_{selected_id}"
         )
 
-    if st.button("✏️ Cập nhật khách hàng", type="primary"):
+    if st.button("Cập nhật khách hàng", type="primary"):
         if not tax_code.strip():
             st.error("Mã số thuế không được để trống.")
         else:
@@ -592,7 +592,7 @@ elif menu == "Xóa thông tin khách hàng":
     )
     confirm = st.checkbox("Tôi xác nhận muốn xóa khách hàng này")
 
-    if st.button("🗑️ Xóa khách hàng", type="primary"):
+    if st.button("Xóa khách hàng", type="primary"):
         if not confirm:
             st.error("Vui lòng tick xác nhận trước khi xóa.")
         else:
@@ -682,7 +682,7 @@ elif menu == "Xem danh sách thông tin khách hàng":
         render_customer_detail(sel_customer or active_list[0])
 
     st.markdown(
-        '<div class="note-box">📌 Chỉ hiển thị khách hàng chưa bị xóa mềm. '
+        '<div class="note-box">Chỉ hiển thị khách hàng chưa bị xóa mềm. '
         'Dùng chức năng <b>Tìm kiếm</b> với tùy chọn "Bao gồm đã xóa" để tra cứu lịch sử.</div>',
         unsafe_allow_html=True,
     )

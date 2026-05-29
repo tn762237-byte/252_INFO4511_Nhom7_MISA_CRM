@@ -12,7 +12,6 @@ from datetime import date
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from IPython.display import display
 from modules.customer_service import (
     CUSTOMER_TYPES,
     PACKAGES,
@@ -20,7 +19,6 @@ from modules.customer_service import (
     SERVICE_STATUS_ALL,
     active_customers,
     build_customer_record,
-    calculate_service_status,
     customers_to_rows,
     enrich_customer,
     find_customer_by_id,
@@ -48,9 +46,9 @@ def show_table(customers: List[Dict[str, Any]]) -> None:
         print("Không có dữ liệu để hiển thị.")
         return
     try:
+        from IPython.display import display
         display(pd.DataFrame(rows))
     except Exception:
-        # Fallback khi chạy ngoài Jupyter
         df = pd.DataFrame(rows)
         print(df.to_string(index=False))
 
@@ -58,29 +56,30 @@ def show_table(customers: List[Dict[str, Any]]) -> None:
 def show_customer_detail(customer: Dict[str, Any]) -> None:
     c = enrich_customer(customer)
     fields = [
-        ("Mã khách hàng",        c.get("customer_id", "")),
-        ("Tên khách hàng",       c.get("customer_name", "")),
-        ("Loại khách hàng",      c.get("customer_type", "")),
-        ("Số điện thoại",        c.get("phone", "")),
-        ("Email",                c.get("email", "")),
-        ("Địa chỉ",              c.get("address", "")),
-        ("Người đại diện",       c.get("representative") or "—"),
-        ("Mã số thuế",           c.get("tax_code") or "—"),
-        ("Sản phẩm",             c.get("product_service", "")),
-        ("Gói dịch vụ",          c.get("service_package", "")),
-        ("Ngày bắt đầu",         c.get("start_date", "")),
-        ("Ngày hết hạn",         c.get("expiry_date", "")),
-        ("Trạng thái dịch vụ",   c.get("service_status", "")),
-        ("Trạng thái thanh toán",c.get("payment_status", "")),
-        ("Công nợ",              f"{float(c.get('balance', 0) or 0):,.0f} VND"),
-        ("Ghi chú",              c.get("notes", "") or "—"),
-        ("Tạo lúc",              c.get("created_at", "")),
-        ("Cập nhật lúc",         c.get("updated_at", "")),
-        ("Đã xóa",               c.get("is_deleted", False)),
-        ("Xóa lúc",              c.get("deleted_at") or "—"),
+        ("Mã khách hàng",         c.get("customer_id", "")),
+        ("Tên khách hàng",        c.get("customer_name", "")),
+        ("Loại khách hàng",       c.get("customer_type", "")),
+        ("Số điện thoại",         c.get("phone", "")),
+        ("Email",                 c.get("email", "")),
+        ("Địa chỉ",               c.get("address", "")),
+        ("Người đại diện",        c.get("representative") or "—"),
+        ("Mã số thuế",            c.get("tax_code") or "—"),
+        ("Sản phẩm",              c.get("product_service", "")),
+        ("Gói dịch vụ",           c.get("service_package", "")),
+        ("Ngày bắt đầu",          c.get("start_date", "")),
+        ("Ngày hết hạn",          c.get("expiry_date", "")),
+        ("Trạng thái dịch vụ",    c.get("service_status", "")),
+        ("Trạng thái thanh toán", c.get("payment_status", "")),
+        ("Công nợ",               f"{float(c.get('balance', 0) or 0):,.0f} VND"),
+        ("Ghi chú",               c.get("notes", "") or "—"),
+        ("Tạo lúc",               c.get("created_at", "")),
+        ("Cập nhật lúc",          c.get("updated_at", "")),
+        ("Đã xóa",                c.get("is_deleted", False)),
+        ("Xóa lúc",               c.get("deleted_at") or "—"),
     ]
     detail = pd.DataFrame(fields, columns=["Trường thông tin", "Giá trị"])
     try:
+        from IPython.display import display
         display(detail)
     except Exception:
         print(detail.to_string(index=False))
@@ -133,13 +132,14 @@ def input_email() -> str:
         print("⚠️  Email không được để trống và phải đúng định dạng (ví dụ: abc@gmail.com).")
 
 
-def input_tax_code(required: bool = False) -> str:
+def input_tax_code() -> str:
+    """Mã số thuế bắt buộc với mọi loại khách hàng."""
     while True:
-        tax_code = input("Mã số thuế: ").strip()
-        if required and not tax_code:
-            print("⚠️  Khách hàng Doanh nghiệp bắt buộc nhập mã số thuế.")
+        tax_code = input("Mã số thuế *: ").strip()
+        if not tax_code:
+            print("⚠️  Mã số thuế không được để trống.")
             continue
-        if tax_code and not tax_code_is_valid(tax_code):
+        if not tax_code_is_valid(tax_code):
             print("⚠️  Mã số thuế phải gồm 10, 12 hoặc 13 chữ số.")
             continue
         return tax_code
@@ -230,18 +230,20 @@ def add_customer() -> None:
     email         = input_email()
     address       = input_non_empty("Địa chỉ", max_length=250)
 
+    # Người đại diện: bắt buộc với Doanh nghiệp
     if customer_type == "Doanh nghiệp":
         representative = input_representative(required=True)
-        tax_code       = input_tax_code(required=True)
     else:
         representative = input_representative(required=False)
-        tax_code       = input_tax_code(required=False)
 
-    product_service = input_choice_from_list("Sản phẩm cung cấp", PRODUCTS)
-    service_package = input_choice_from_list("Gói dịch vụ", PACKAGES)
+    # Mã số thuế: bắt buộc với mọi loại khách hàng
+    tax_code = input_tax_code()
+
+    product_service         = input_choice_from_list("Sản phẩm cung cấp", PRODUCTS)
+    service_package         = input_choice_from_list("Gói dịch vụ", PACKAGES)
     start_date, expiry_date = input_date_range()
-    balance = input_float_non_negative("Công nợ (VND)")
-    notes   = input_notes()
+    balance                 = input_float_non_negative("Công nợ (VND)")
+    notes                   = input_notes()
 
     record = build_customer_record(
         customer_id=next_id,
@@ -307,19 +309,19 @@ def update_customer_cli() -> None:
     show_customer_detail(old)
 
     field_labels: Dict[str, str] = {
-        "customer_name":  "Tên khách hàng",
-        "customer_type":  "Loại khách hàng",
-        "phone":          "Số điện thoại",
-        "email":          "Email",
-        "address":        "Địa chỉ",
-        "representative": "Người đại diện",
-        "tax_code":       "Mã số thuế",
-        "product_service":"Sản phẩm cung cấp",
-        "service_package":"Gói dịch vụ",
-        "start_date":     "Ngày bắt đầu",
-        "expiry_date":    "Ngày hết hạn",
-        "balance":        "Công nợ",
-        "notes":          "Ghi chú",
+        "customer_name":   "Tên khách hàng",
+        "customer_type":   "Loại khách hàng",
+        "phone":           "Số điện thoại",
+        "email":           "Email",
+        "address":         "Địa chỉ",
+        "representative":  "Người đại diện",
+        "tax_code":        "Mã số thuế",
+        "product_service": "Sản phẩm cung cấp",
+        "service_package": "Gói dịch vụ",
+        "start_date":      "Ngày bắt đầu",
+        "expiry_date":     "Ngày hết hạn",
+        "balance":         "Công nợ",
+        "notes":           "Ghi chú",
     }
     allowed_fields = list(field_labels.keys())
     label_to_field = {normalize_keyword(v): k for k, v in field_labels.items()}
@@ -351,12 +353,10 @@ def update_customer_cli() -> None:
             value = input_non_empty("Tên khách hàng")
         elif field == "customer_type":
             value = input_customer_type()
-            # Nếu đổi sang Doanh nghiệp và chưa có đại diện / MST thì bắt nhập ngay
+            # Nếu đổi sang Doanh nghiệp và chưa có đại diện thì bắt nhập ngay
             if value == "Doanh nghiệp":
                 if not fields_to_update.get("representative", old.get("representative")):
                     fields_to_update["representative"] = input_representative(required=True)
-                if not fields_to_update.get("tax_code", old.get("tax_code")):
-                    fields_to_update["tax_code"] = input_tax_code(required=True)
         elif field == "phone":
             value = input_phone()
         elif field == "email":
@@ -364,11 +364,13 @@ def update_customer_cli() -> None:
         elif field == "address":
             value = input_non_empty("Địa chỉ", max_length=250)
         elif field == "representative":
-            required = (fields_to_update.get("customer_type", old.get("customer_type")) == "Doanh nghiệp")
+            required = (
+                fields_to_update.get("customer_type", old.get("customer_type")) == "Doanh nghiệp"
+            )
             value = input_representative(required=required)
         elif field == "tax_code":
-            required = (fields_to_update.get("customer_type", old.get("customer_type")) == "Doanh nghiệp")
-            value = input_tax_code(required=required)
+            # Mã số thuế bắt buộc với mọi loại KH
+            value = input_tax_code()
         elif field == "product_service":
             value = input_choice_from_list("Sản phẩm cung cấp", PRODUCTS)
         elif field == "service_package":
@@ -402,7 +404,6 @@ def update_customer_cli() -> None:
     merged = dict(old)
     merged.update(fields_to_update)
 
-    # Xử lý ngày tháng về kiểu date cho build_customer_record
     try:
         start_value  = parse_date(merged.get("start_date", ""))
         expiry_value = parse_date(merged.get("expiry_date", ""))
@@ -450,16 +451,18 @@ def search_customers_cli() -> None:
     print("TÌM KIẾM THÔNG TIN KHÁCH HÀNG")
     print("─" * 60)
 
-    customers       = load_customers()
-    keyword         = input("Từ khóa (mã KH, tên, SĐT, email): ").strip()
+    customers = load_customers()
+    keyword   = input("Từ khóa (mã KH, tên, SĐT, email): ").strip()
+
     print("Lọc theo trạng thái:")
     for i, s in enumerate(SERVICE_STATUS_ALL, start=1):
         print(f"  {i}. {s}")
-    raw_filter      = input("Chọn trạng thái (Enter = Tất cả): ").strip()
+    raw_filter = input("Chọn trạng thái (Enter = Tất cả): ").strip()
     if raw_filter.isdigit() and 1 <= int(raw_filter) <= len(SERVICE_STATUS_ALL):
         status_filter = SERVICE_STATUS_ALL[int(raw_filter) - 1]
     else:
         status_filter = "Tất cả"
+
     include_deleted = input("Bao gồm khách hàng đã xóa? [Y/N]: ").strip().lower() == "y"
 
     results, message = search_customers(customers, keyword, status_filter, include_deleted)
@@ -542,3 +545,4 @@ def main_menu() -> None:
 
 if __name__ == "__main__":
     main_menu()
+    

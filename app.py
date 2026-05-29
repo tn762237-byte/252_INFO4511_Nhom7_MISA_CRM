@@ -1,27 +1,8 @@
-"""
-app.py – Giao diện Streamlit quản lý khách hàng MISA (phiên bản tổng hợp)
-=========================================================================
-Chạy: streamlit run app.py
-
-Ưu điểm tổng hợp từ v1 + v2:
-- Reset form bằng form_version key (v2) — không cần danh sách key thủ công (v1)
-- Chọn KH bằng text input + bảng tham khảo (v2) — thay dropdown (v1)
-- Xem danh sách dùng st.data_editor + checkbox (v2)
-- Validation realtime gọi trực tiếp phone_is_valid / email_is_valid / tax_code_is_valid (rõ ràng hơn)
-- Mã số thuế BẮT BUỘC với mọi loại khách hàng
-- Tất cả dịch vụ đều có thời hạn (bỏ "vĩnh viễn" theo customer_service mới)
-- Flash message toàn cục (v1) + inline success (v2)
-- Thống kê nhanh 4 metric ở màn hình danh sách (v1)
-"""
-
 from __future__ import annotations
-
 from datetime import date, timedelta
 from typing import Any, Dict, List
-
 import pandas as pd
 import streamlit as st
-
 from modules.customer_service import (
     CUSTOMER_TYPES,
     PACKAGES,
@@ -43,13 +24,8 @@ from modules.customer_service import (
 )
 from modules.storage import load_customers, save_customers
 
-
-# ─────────────────────────────────────────────────────────────────────────────
 # CẤU HÌNH TRANG
-# ─────────────────────────────────────────────────────────────────────────────
-
 st.set_page_config(page_title="Quản lý khách hàng MISA", layout="wide")
-
 st.markdown(
     """
     <style>
@@ -213,11 +189,7 @@ with st.sidebar:
     active_count = len(active_customers(customers))
     st.metric("Khách hàng đang hoạt động", active_count)
 
-
-# =============================================================================
-# 1. NHẬP THÔNG TIN KHÁCH HÀNG
-# =============================================================================
-
+# NHẬP THÔNG TIN KHÁCH HÀNG
 if menu == "Nhập thông tin khách hàng":
     st.markdown('<div class="section-title">Nhập thông tin khách hàng</div>', unsafe_allow_html=True)
 
@@ -225,12 +197,10 @@ if menu == "Nhập thông tin khách hàng":
     fv = st.session_state.get("add_form_version", 0)
     new_id = generate_next_customer_id(customers)
     live_errors: List[str] = []
-
     st.info(f"Mã khách hàng được sinh tự động: **{new_id}**")
 
-    # ── 1. Thông tin định danh ─────────────────────────────────────────────
+    #  Thông tin định dạng
     st.subheader("1. Thông tin định danh và liên hệ")
-
     c1, c2, c3 = st.columns(3)
     with c1:
         st.text_input("Mã khách hàng", value=new_id, disabled=True, key=f"add_id_{fv}")
@@ -286,10 +256,8 @@ if menu == "Nhập thông tin khách hàng":
             "<div class='small-muted' style='margin-top:32px'>Mã số thuế là bắt buộc với mọi loại khách hàng.</div>",
             unsafe_allow_html=True,
         )
-
-    # ── 2. Thông tin dịch vụ ──────────────────────────────────────────────
+    # Thông tin dịch vụ
     st.subheader("2. Thông tin dịch vụ")
-
     d1, d2 = st.columns(2)
     with d1:
         product_service = st.selectbox("Sản phẩm cung cấp *", PRODUCTS, key=f"add_prod_{fv}")
@@ -312,7 +280,7 @@ if menu == "Nhập thông tin khách hàng":
             days_left = (expiry_date - date.today()).days
             st.success(f"✓ Hợp lệ · còn {days_left} ngày")
 
-    # ── 3. Thông tin tài chính ────────────────────────────────────────────
+    # Thông tin tài chính
     st.subheader("3. Thông tin tài chính")
 
     f1, f2 = st.columns([1, 2])
@@ -365,11 +333,7 @@ if menu == "Nhập thông tin khách hàng":
                 st.session_state["add_form_version"] = fv + 1
                 st.rerun()
 
-
-# =============================================================================
-# 2. CẬP NHẬT THÔNG TIN KHÁCH HÀNG
-# =============================================================================
-
+# CẬP NHẬT THÔNG TIN KHÁCH HÀNG
 elif menu == "Cập nhật thông tin khách hàng":
     st.markdown('<div class="section-title">Cập nhật thông tin khách hàng</div>', unsafe_allow_html=True)
 
@@ -409,7 +373,7 @@ elif menu == "Cập nhật thông tin khách hàng":
     st.subheader("Chỉnh sửa thông tin")
     upd_errors: List[str] = []
 
-    # ── Thông tin định danh ────────────────────────────────────────────────
+    # Thông tin định danh
     u1, u2, u3 = st.columns(3)
     with u1:
         st.text_input("Mã khách hàng", value=c["customer_id"], disabled=True, key=f"upd_id_{selected_id}")
@@ -474,7 +438,7 @@ elif menu == "Cập nhật thông tin khách hàng":
             unsafe_allow_html=True,
         )
 
-    # ── Thông tin dịch vụ ─────────────────────────────────────────────────
+    # Thông tin dịch vụ
     st.subheader("Thông tin dịch vụ")
 
     p1, p2 = st.columns(2)
@@ -568,10 +532,7 @@ elif menu == "Cập nhật thông tin khách hàng":
                 )
                 st.rerun()
 
-
-# =============================================================================
-# 3. TÌM KIẾM THÔNG TIN KHÁCH HÀNG
-# =============================================================================
+# TÌM KIẾM THÔNG TIN KHÁCH HÀNG
 
 elif menu == "Tìm kiếm thông tin khách hàng":
     st.markdown('<div class="section-title">Tìm kiếm thông tin khách hàng</div>', unsafe_allow_html=True)
@@ -602,10 +563,7 @@ elif menu == "Tìm kiếm thông tin khách hàng":
             chosen_id = chosen.split(" – ")[0]
             render_customer_detail(find_customer_by_id(results, chosen_id) or results[0])
 
-
-# =============================================================================
 # 4. XÓA THÔNG TIN KHÁCH HÀNG
-# =============================================================================
 
 elif menu == "Xóa thông tin khách hàng":
     st.markdown('<div class="section-title">Xóa thông tin khách hàng</div>', unsafe_allow_html=True)
@@ -660,10 +618,7 @@ elif menu == "Xóa thông tin khách hàng":
             else:
                 st.error(msg)
 
-
-# =============================================================================
 # 5. XEM DANH SÁCH THÔNG TIN KHÁCH HÀNG
-# =============================================================================
 
 elif menu == "Xem danh sách thông tin khách hàng":
     st.markdown('<div class="section-title">Danh sách khách hàng</div>', unsafe_allow_html=True)
@@ -673,7 +628,7 @@ elif menu == "Xem danh sách thông tin khách hàng":
         st.info('Chưa có khách hàng. Dùng "Nhập thông tin khách hàng" để thêm.')
         st.stop()
 
-    # ── Thống kê nhanh ─────────────────────────────────────────────────────
+    # Thống kê nhanh
     hoat_dong   = sum(1 for c in active_list if c.get("service_status") == "Hoạt động")
     sap_het_han = sum(1 for c in active_list if c.get("service_status") == "Sắp hết hạn")
     het_han     = sum(1 for c in active_list if c.get("service_status") == "Hết hạn")
@@ -689,7 +644,7 @@ elif menu == "Xem danh sách thông tin khách hàng":
 
     st.divider()
 
-    # ── Bảng có checkbox chọn để xem chi tiết (từ app_2) ──────────────────
+    # Bảng có checkbox chọn để xem chi tiết
     rows = customers_to_rows(active_list)
     valid_ids = {str(r.get("Mã KH", "")) for r in rows}
 

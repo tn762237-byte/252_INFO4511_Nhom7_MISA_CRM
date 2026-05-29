@@ -623,8 +623,8 @@ elif menu == "Xem danh sách thông tin khách hàng":
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Tổng khách hàng",  len(active_list))
     m2.metric("Đang hoạt động",   hoat_dong)
-    m3.metric("Sắp hết hạn",      sap_het_han,
-    m4.metric("Có công nợ",       co_no,
+    m3.metric("Sắp hết hạn",      sap_het_han,)
+    m4.metric("Có công nợ",       co_no,)
 
     st.divider()
 

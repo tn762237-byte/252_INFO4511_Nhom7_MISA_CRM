@@ -279,7 +279,7 @@ if menu == "Nhập thông tin khách hàng":
             key=f"add_tax_{fv}",
         )
 
-        if not tax_code_is_valid(tax_code):
+        if tax_code and not tax_code_is_valid(tax_code):
             show_error_once(live_errors, "Mã số thuế phải gồm 10, 12 hoặc 13 chữ số.")
     with c9:
         st.markdown(

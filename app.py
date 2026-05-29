@@ -531,7 +531,7 @@ elif menu == "Tìm kiếm thông tin khách hàng":
     with f3:
         include_deleted = st.checkbox("Bao gồm đã xóa")
 
-    if st.button("🔍 Tìm kiếm", type="primary"):
+    if st.button("Tìm kiếm", type="primary"):
         results, message = search_customers(customers, keyword, status_filter, include_deleted)
         if message and not results:
             st.warning(message) if "Tìm thấy" in message else st.info(message)
@@ -588,7 +588,7 @@ elif menu == "Xóa thông tin khách hàng":
     render_customer_detail(selected_customer)
 
     st.warning(
-        "⚠️ Hệ thống dùng **xóa mềm**. Khách hàng đang Hoạt động, Sắp hết hạn hoặc còn công nợ sẽ không được xóa."
+        "Hệ thống dùng **xóa mềm**. Khách hàng đang Hoạt động, Sắp hết hạn hoặc còn công nợ sẽ không được xóa."
     )
     confirm = st.checkbox("Tôi xác nhận muốn xóa khách hàng này")
 

@@ -99,7 +99,7 @@ st.markdown(
 
 st.markdown('<div class="main-title">🏢 QUẢN LÝ KHÁCH HÀNG MISA</div>', unsafe_allow_html=True)
 
-# ─── Flash messages toàn cục ─────────────────────────────────────────────────
+# Flash messages toàn cục
 if "flash_success" in st.session_state:
     st.success(st.session_state.pop("flash_success"))
 if "flash_error" in st.session_state:
@@ -107,24 +107,18 @@ if "flash_error" in st.session_state:
 
 customers: List[Dict[str, Any]] = load_customers()
 
-
-# ─────────────────────────────────────────────────────────────────────────────
 # HELPERS
-# ─────────────────────────────────────────────────────────────────────────────
-
 def safe_date(value: Any, default: date) -> date:
     try:
         return parse_date(str(value)) if value else default
     except Exception:
         return default
 
-
 def show_error_once(errors: List[str], message: str | None) -> None:
     """Ghi nhận lỗi và hiển thị ngay, tránh trùng."""
     if message and message not in errors:
         errors.append(message)
         st.error(message)
-
 
 def render_customer_detail(customer: Dict[str, Any]) -> None:
     if not customer:
@@ -166,11 +160,7 @@ def render_customer_detail(customer: Dict[str, Any]) -> None:
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
 # SIDEBAR
-# ─────────────────────────────────────────────────────────────────────────────
-
 with st.sidebar:
     st.markdown("## 🔷 MISA")
     st.markdown("### Menu chức năng")
@@ -184,10 +174,6 @@ with st.sidebar:
             "Xem danh sách thông tin khách hàng",
         ],
         label_visibility="collapsed",
-    )
-    st.divider()
-    active_count = len(active_customers(customers))
-    st.metric("Khách hàng đang hoạt động", active_count)
 
 # NHẬP THÔNG TIN KHÁCH HÀNG
 if menu == "Nhập thông tin khách hàng":

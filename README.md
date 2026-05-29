@@ -249,14 +249,6 @@ Học phần: **Lập trình Python**
 Đề tài: **Xây dựng chương trình quản lý khách hàng của Công ty Cổ phần MISA**
 Trưởng nhóm: **Nguyễn Thu Hà** 
 
-| STT | Họ và tên | Mã sinh viên |
-|---|---|---|---|
-| 1 | Lê Quốc Đạt | 24D400018 |
-| 2 | Nguyễn Thành Đạt | 24D400074 |
-| 3 | Phạm Anh Đức | 24D400019 |
-| 4 | Đỗ Lưu Hà | 24D400075 |
-| 5 | Nguyễn Thu Hà | 24D400076 |
-
 ---
 
 ## 📎 Ghi chú

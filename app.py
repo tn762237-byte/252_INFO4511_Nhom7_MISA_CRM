@@ -174,7 +174,7 @@ with st.sidebar:
             "Xem danh sách thông tin khách hàng",
         ],
         label_visibility="collapsed",
-
+    )
 # NHẬP THÔNG TIN KHÁCH HÀNG
 if menu == "Nhập thông tin khách hàng":
     st.markdown('<div class="section-title">Nhập thông tin khách hàng</div>', unsafe_allow_html=True)

@@ -199,7 +199,6 @@ Hệ thống cũng tự động tính trạng thái thanh toán dựa trên côn
 |---|---|
 | `Đã thanh toán` | Công nợ bằng 0 |
 | `Chưa thanh toán` | Công nợ lớn hơn 0 |
-| `Đã thanh toán (Dư)` | Công nợ nhỏ hơn 0 |
 
 ---
 
@@ -219,49 +218,11 @@ Hệ thống cũng tự động tính trạng thái thanh toán dựa trên côn
 
 ---
 
-## 🧭 Sơ đồ phân cấp chức năng
-
-```text
-QUẢN LÝ KHÁCH HÀNG MISA
-│
-├── Nhập thông tin khách hàng
-│   ├── Nhập thông tin định danh và liên hệ
-│   ├── Nhập thông tin dịch vụ và tài chính
-│   └── Kiểm tra tính hợp lệ của dữ liệu
-│
-├── Cập nhật thông tin khách hàng
-│   ├── Tìm khách hàng theo mã
-│   ├── Hiển thị thông tin hiện tại
-│   ├── Chọn nội dung cần chỉnh sửa
-│   └── Kiểm tra dữ liệu sau cập nhật
-│
-├── Xóa thông tin khách hàng
-│   ├── Nhập mã khách hàng cần xóa
-│   ├── Kiểm tra khách hàng có tồn tại
-│   ├── Thực hiện xóa mềm dữ liệu
-│   └── Cập nhật lại danh sách khách hàng
-│
-├── Tìm kiếm thông tin khách hàng
-│   ├── Nhập từ khóa tìm kiếm
-│   ├── Tìm theo mã, tên, số điện thoại hoặc email
-│   ├── Lọc khách theo trạng thái dịch vụ
-│   └── Hiển thị kết quả tìm kiếm
-│
-└── Xem danh sách khách hàng
-    ├── Tải dữ liệu khách hàng
-    ├── Hiển thị danh sách khách hàng
-    └── Xem chi tiết khách hàng
-```
-
----
-
 ## 📎 Tài liệu bổ sung
 
 Các tài liệu có thể kèm theo trong bài báo cáo:
 
-- Sơ đồ phân cấp chức năng hệ thống
-- Sơ đồ khối các chức năng chính
-- Ảnh chụp giao diện chương trình
+- Tệp chương trình
 - Báo cáo bài tập lớn
 - Slide thuyết trình nhóm
 
@@ -286,13 +247,15 @@ Trong tương lai, hệ thống có thể được phát triển thêm các ch�
 **Nhóm 7**  
 Học phần: **Lập trình Python**  
 Đề tài: **Xây dựng chương trình quản lý khách hàng của Công ty Cổ phần MISA**
+Trưởng nhóm: **Nguyễn Thu Hà** 
 
-| STT | Họ và tên | Nhiệm vụ |
-|---|---|---|
-| 1 | ... | ... |
-| 2 | ... | ... |
-| 3 | ... | ... |
-| 4 | ... | ... |
+| STT | Họ và tên | Mã sinh viên |
+|---|---|---|---|
+| 1 | Lê Quốc Đạt | 24D400018 |
+| 2 | Nguyễn Thành Đạt | 24D400074 |
+| 3 | Phạm Anh Đức | 24D400019 |
+| 4 | Đỗ Lưu Hà | 24D400075 |
+| 5 | Nguyễn Thu Hà | 24D400076 |
 
 ---
 

@@ -85,13 +85,18 @@ def input_non_empty(label: str, max_length: Optional[int] = None) -> str:
             print(f"⚠️  {label} không được vượt quá {max_length} ký tự.")
             continue
         return value
+        
 def input_customer_type() -> str:
     while True:
         print("Loại khách hàng:")
         print(" 1. Cá nhân")
         print(" 2. Doanh nghiệp")
 
-        value = input("Chọn loại khách hàng
+        value = input("Chọn loại khách hàng: ").strip()
+
+        if value == "":
+            return "Cá nhân"
+
         if value == "1":
             return "Cá nhân"
 
@@ -101,9 +106,8 @@ def input_customer_type() -> str:
         for item in CUSTOMER_TYPES:
             if normalize_keyword(value) == normalize_keyword(item):
                 return item
-
         print("⚠️ Lựa chọn không hợp lệ. Vui lòng nhập 1, 2, Cá nhân hoặc Doanh nghiệp.")
-
+                
 def input_phone() -> str:
     while True:
         phone = input("Số điện thoại: ").strip()

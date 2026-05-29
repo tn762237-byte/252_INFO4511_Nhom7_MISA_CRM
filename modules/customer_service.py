@@ -1,46 +1,20 @@
-"""
-customer_service.py
-===================
-Module logic nghiệp vụ thuần (pure functions, không có I/O, không có framework).
-Được dùng chung bởi CLI (main_cli.py) và Web UI (app.py).
-
-Thay đổi so với phiên bản cũ:
-- Bỏ trường `usage_duration_type`: tất cả dịch vụ đều CÓ THỜI HẠN (start_date + expiry_date bắt buộc).
-- `email` trở thành bắt buộc (validate format + không được để trống).
-- Bỏ toàn bộ logic kiểm tra trùng lặp (duplicate check).
-- Trạng thái "Sắp hết hạn" (≤30 ngày) được giữ nhất quán ở mọi nơi.
-- Thống nhất: validate ngày hết hạn phải STRICTLY lớn hơn ngày bắt đầu (app.py từng dùng >=, nay đồng nhất >).
-- tax_code cho phép 10, 12 hoặc 13 chữ số — thông điệp lỗi khớp hoàn toàn.
-- service_status và payment_status KHÔNG lưu vào JSON, chỉ tính khi cần qua enrich_customer().
-- Soft delete chặn xóa khi dịch vụ "Hoạt động" HOẶC "Sắp hết hạn" hoặc còn công nợ.
-"""
-
 import re
 import unicodedata
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-# ---------------------------------------------------------------------------
 # HẰNG SỐ NGHIỆP VỤ
-# ---------------------------------------------------------------------------
-
 PRODUCTS = ["meInvoice", "MISA SME", "MISA AMIS", "Bamboo"]
 PACKAGES = ["Standard", "Professional", "Enterprise"]
 CUSTOMER_TYPES = ["Cá nhân", "Doanh nghiệp"]
 SERVICE_STATUS_ALL = ["Tất cả", "Hoạt động", "Sắp hết hạn", "Hết hạn", "Đã xóa"]
 
-
-# ---------------------------------------------------------------------------
 # NHÓM HÀM CHUẨN HÓA
-# ---------------------------------------------------------------------------
-
 def now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-
 def normalize_spaces(text: Any) -> str:
     return re.sub(r"\s+", " ", str(text or "").strip())
-
 
 def remove_accents(text: Any) -> str:
     text = str(text or "")
@@ -48,44 +22,31 @@ def remove_accents(text: Any) -> str:
     text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
     return text.replace("đ", "d").replace("Đ", "D")
 
-
 def normalize_keyword(text: Any) -> str:
     return remove_accents(normalize_spaces(text)).lower()
 
-
 def digits_only(text: Any) -> str:
     return re.sub(r"\D", "", str(text or ""))
-
 
 def parse_date(date_text: str) -> date:
     """Chuyển chuỗi YYYY-MM-DD sang kiểu date. Ném ValueError nếu sai."""
     return datetime.strptime(normalize_spaces(date_text), "%Y-%m-%d").date()
 
-
-# ---------------------------------------------------------------------------
 # NHÓM HÀM SINH MÃ KHÁCH HÀNG
-# ---------------------------------------------------------------------------
-
 def parse_customer_no(customer_id: str) -> int:
     match = re.search(r"KH(\d+)$", str(customer_id or "").upper())
     return int(match.group(1)) if match else 0
-
 
 def generate_next_customer_id(customers: List[Dict[str, Any]]) -> str:
     """Sinh mã KH dựa trên số lớn nhất từng tồn tại, kể cả bản ghi đã xóa."""
     max_no = max((parse_customer_no(c.get("customer_id", "")) for c in customers), default=0)
     return f"KH{max_no + 1:03d}"
 
-
-# ---------------------------------------------------------------------------
 # NHÓM HÀM KIỂM TRA ĐỊNH DẠNG
-# ---------------------------------------------------------------------------
-
 def phone_is_valid(phone: Any) -> bool:
     """10 chữ số, bắt đầu bằng 0."""
     d = digits_only(phone)
     return len(d) == 10 and d.startswith("0")
-
 
 def email_is_valid(email: Any) -> bool:
     """Email bắt buộc: không được trống và phải đúng định dạng."""
@@ -94,20 +55,15 @@ def email_is_valid(email: Any) -> bool:
         return False
     return bool(re.match(r"^[\w\.-]+@[\w\.-]+\.[A-Za-z]{2,}$", email))
 
-
 def tax_code_is_valid(tax_code: Any) -> bool:
     """MST bắt buộc: phải gồm 10, 12 hoặc 13 chữ số."""
     tax_code = normalize_spaces(tax_code)
     return len(digits_only(tax_code)) in (10, 12, 13)
 
-
-# ---------------------------------------------------------------------------
 # NHÓM HÀM TÍNH TRẠNG THÁI
-# ---------------------------------------------------------------------------
-
 def calculate_service_status(expiry_date: str) -> str:
     """
-    Tính trạng thái dịch vụ dựa trên ngày hết hạn (tất cả dịch vụ đều có thời hạn).
+    Tính trạng thái dịch vụ dựa trên ngày hết hạn
 
     - Ngày hết hạn đã qua          → "Hết hạn"
     - Còn ≤ 30 ngày                → "Sắp hết hạn"
@@ -128,7 +84,6 @@ def calculate_service_status(expiry_date: str) -> str:
         return "Sắp hết hạn"
     return "Hoạt động"
 
-
 def calculate_payment_status(balance: float) -> str:
     """
     - balance == 0   → Đã thanh toán
@@ -142,10 +97,7 @@ def calculate_payment_status(balance: float) -> str:
     return f"Đã thanh toán (Dư: {abs(balance):,.0f} VND)"
 
 
-# ---------------------------------------------------------------------------
 # NHÓM HÀM LÀM GIÀU DỮ LIỆU
-# ---------------------------------------------------------------------------
-
 def enrich_customer(customer: Dict[str, Any]) -> Dict[str, Any]:
     """
     Tính service_status và payment_status tại runtime (không lưu vào JSON).
@@ -159,20 +111,12 @@ def enrich_customer(customer: Dict[str, Any]) -> Dict[str, Any]:
     c["payment_status"] = calculate_payment_status(float(c.get("balance", 0) or 0))
     return c
 
-
-# ---------------------------------------------------------------------------
 # NHÓM HÀM LỌC DANH SÁCH
-# ---------------------------------------------------------------------------
-
 def active_customers(customers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Trả về danh sách chưa bị xóa mềm."""
     return [c for c in customers if not c.get("is_deleted", False)]
 
-
-# ---------------------------------------------------------------------------
 # XÂY DỰNG BẢN GHI
-# ---------------------------------------------------------------------------
-
 def build_customer_record(
     customer_id: str,
     customer_name: str,
@@ -208,7 +152,6 @@ def build_customer_record(
     notes          = normalize_spaces(notes)
     balance        = float(balance or 0)
 
-    # Cá nhân: không cần representative dù người dùng tình cờ nhập
     if customer_type == "Cá nhân":
         representative = representative or None
 
@@ -237,10 +180,7 @@ def build_customer_record(
         "deleted_at":     deleted_at,
     }
 
-
-# ---------------------------------------------------------------------------
 # VALIDATE
-# ---------------------------------------------------------------------------
 
 def validate_customer_record(
     customer: Dict[str, Any],
@@ -315,11 +255,7 @@ def validate_customer_record(
 
     return errors
 
-
-# ---------------------------------------------------------------------------
 # TÌM KIẾM
-# ---------------------------------------------------------------------------
-
 def find_customer_by_id(
     customers: List[Dict[str, Any]], customer_id: str
 ) -> Optional[Dict[str, Any]]:
@@ -328,7 +264,6 @@ def find_customer_by_id(
         if c.get("customer_id") == customer_id:
             return c
     return None
-
 
 def search_customers(
     customers: List[Dict[str, Any]],
@@ -352,7 +287,6 @@ def search_customers(
     is_email_keyword = "@" in raw_keyword or (
         "." in raw_keyword and not raw_keyword.replace(".", "").isdigit()
     )
-
     keyword_results: List[Dict[str, Any]] = []
     for customer in customers:
         c = enrich_customer(customer)
@@ -383,11 +317,7 @@ def search_customers(
 
     return final_results, ""
 
-
-# ---------------------------------------------------------------------------
 # XÓA MỀM
-# ---------------------------------------------------------------------------
-
 def soft_delete_customer(
     customers: List[Dict[str, Any]], customer_id: str
 ) -> Tuple[bool, str]:
@@ -427,11 +357,7 @@ def soft_delete_customer(
         f"Đã xóa khách hàng {customer.get('customer_id')} - {customer.get('customer_name')}."
     )
 
-
-# ---------------------------------------------------------------------------
 # XUẤT DỮ LIỆU BẢNG
-# ---------------------------------------------------------------------------
-
 def customers_to_rows(customers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Chuyển danh sách dict sang list of dict dạng bảng để hiển thị.

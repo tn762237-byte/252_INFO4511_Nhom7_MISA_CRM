@@ -624,9 +624,7 @@ elif menu == "Xem danh sách thông tin khách hàng":
     m1.metric("Tổng khách hàng",  len(active_list))
     m2.metric("Đang hoạt động",   hoat_dong)
     m3.metric("Sắp hết hạn",      sap_het_han,
-              delta=f"-{sap_het_han}" if sap_het_han else None, delta_color="inverse")
     m4.metric("Có công nợ",       co_no,
-              delta=f"-{co_no}" if co_no else None, delta_color="inverse")
 
     st.divider()
 

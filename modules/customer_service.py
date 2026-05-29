@@ -96,10 +96,8 @@ def email_is_valid(email: Any) -> bool:
 
 
 def tax_code_is_valid(tax_code: Any) -> bool:
-    """MST có thể trống (với cá nhân). Nếu nhập: 10, 12 hoặc 13 chữ số."""
+    """MST bắt buộc: phải gồm 10, 12 hoặc 13 chữ số."""
     tax_code = normalize_spaces(tax_code)
-    if not tax_code:
-        return True
     return len(digits_only(tax_code)) in (10, 12, 13)
 
 
@@ -206,14 +204,13 @@ def build_customer_record(
     email          = normalize_spaces(email).lower()
     address        = normalize_spaces(address)
     representative = normalize_spaces(representative) or None
-    tax_code       = digits_only(tax_code) or None
+    tax_code       = digits_only(tax_code)
     notes          = normalize_spaces(notes)
     balance        = float(balance or 0)
 
-    # Cá nhân: không cần representative / tax_code dù người dùng tình cờ nhập
+    # Cá nhân: không cần representative dù người dùng tình cờ nhập
     if customer_type == "Cá nhân":
         representative = representative or None
-        tax_code       = tax_code or None
 
     start_date_str  = start_date_value.strftime("%Y-%m-%d") if isinstance(start_date_value, date) else ""
     expiry_date_str = expiry_date_value.strftime("%Y-%m-%d") if isinstance(expiry_date_value, date) else ""
@@ -264,6 +261,7 @@ def validate_customer_record(
         "phone":            "Số điện thoại",
         "email":            "Email",
         "address":          "Địa chỉ",
+        "tax_code": "Mã số thuế",
         "product_service":  "Sản phẩm cung cấp",
         "service_package":  "Gói dịch vụ",
         "start_date":       "Ngày bắt đầu",
@@ -297,8 +295,6 @@ def validate_customer_record(
     if customer.get("customer_type") == "Doanh nghiệp":
         if not customer.get("representative"):
             errors.append("Khách hàng Doanh nghiệp bắt buộc nhập người đại diện.")
-        if not customer.get("tax_code"):
-            errors.append("Khách hàng Doanh nghiệp bắt buộc nhập mã số thuế.")
 
     # --- Ngày tháng ---
     if customer.get("start_date") and customer.get("expiry_date"):

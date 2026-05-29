@@ -17,7 +17,7 @@ Xây dựng chương trình quản lý khách hàng của Công ty Cổ phần M
 ## 🧱 Cấu trúc thư mục
 
 ```text
-252_INFO4511_02_Nhom_7
+252_INFO4511_Nhom7_MISA_CRM
 ├── app.py                      # Giao diện web chính bằng Streamlit
 ├── codethuan.py                # Giao diện dòng lệnh Python thuần
 ├── config.toml                 # File cấu hình giao diện Streamlit

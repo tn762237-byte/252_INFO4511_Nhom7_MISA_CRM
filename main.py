@@ -1,16 +1,5 @@
-"""
-main_cli.py
-===========
-Ứng dụng CLI quản lý khách hàng MISA.
-Chạy: python main_cli.py
-
-Tất cả logic nghiệp vụ nằm trong modules/customer_service.py.
-File này chỉ xử lý I/O terminal và điều hướng menu.
-"""
-
 from datetime import date
 from typing import Any, Dict, List, Optional
-
 import pandas as pd
 from modules.customer_service import (
     CUSTOMER_TYPES,
@@ -35,11 +24,7 @@ from modules.customer_service import (
 )
 from modules.storage import load_customers, save_customers
 
-
-# ---------------------------------------------------------------------------
 # HIỂN THỊ DỮ LIỆU
-# ---------------------------------------------------------------------------
-
 def show_table(customers: List[Dict[str, Any]]) -> None:
     rows = customers_to_rows(customers)
     if not rows:
@@ -51,7 +36,6 @@ def show_table(customers: List[Dict[str, Any]]) -> None:
     except Exception:
         df = pd.DataFrame(rows)
         print(df.to_string(index=False))
-
 
 def show_customer_detail(customer: Dict[str, Any]) -> None:
     c = enrich_customer(customer)
@@ -84,18 +68,13 @@ def show_customer_detail(customer: Dict[str, Any]) -> None:
     except Exception:
         print(detail.to_string(index=False))
 
-
 def print_validation_errors(errors: List[str]) -> None:
     if errors:
         print("Dữ liệu chưa hợp lệ. Vui lòng kiểm tra:")
         for err in errors:
             print(f"  ⚠️  {err}")
 
-
-# ---------------------------------------------------------------------------
-# NHÓM HÀM NHẬP LIỆU CÓ VALIDATE TỨC THỜI
-# ---------------------------------------------------------------------------
-
+# NHÓM HÀM NHẬP LIỆU CẢNH BÁO TỨC THỜI
 def input_non_empty(label: str, max_length: Optional[int] = None) -> str:
     while True:
         value = input(f"{label}: ").strip()
@@ -107,14 +86,12 @@ def input_non_empty(label: str, max_length: Optional[int] = None) -> str:
             continue
         return value
 
-
 def input_customer_type() -> str:
     while True:
         value = input("Loại khách hàng [Cá nhân/Doanh nghiệp] (mặc định: Cá nhân): ").strip() or "Cá nhân"
         if value in CUSTOMER_TYPES:
             return value
         print("⚠️  Chỉ được nhập: Cá nhân hoặc Doanh nghiệp.")
-
 
 def input_phone() -> str:
     while True:
@@ -123,14 +100,12 @@ def input_phone() -> str:
             return phone
         print("⚠️  Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng số 0.")
 
-
 def input_email() -> str:
     while True:
         email = input("Email: ").strip()
         if email_is_valid(email):
             return email
         print("⚠️  Email không được để trống và phải đúng định dạng (ví dụ: abc@gmail.com).")
-
 
 def input_tax_code() -> str:
     """Mã số thuế bắt buộc với mọi loại khách hàng."""
@@ -144,7 +119,6 @@ def input_tax_code() -> str:
             continue
         return tax_code
 
-
 def input_representative(required: bool = False) -> str:
     while True:
         value = input("Người đại diện: ").strip()
@@ -152,7 +126,6 @@ def input_representative(required: bool = False) -> str:
             print("⚠️  Khách hàng Doanh nghiệp bắt buộc nhập người đại diện.")
             continue
         return value
-
 
 def input_choice_from_list(label: str, choices: List[str]) -> str:
     while True:
@@ -167,7 +140,6 @@ def input_choice_from_list(label: str, choices: List[str]) -> str:
                 return item
         print(f"⚠️  {label} không hợp lệ.")
 
-
 def input_date_required(label: str) -> date:
     while True:
         value = input(f"{label} (YYYY-MM-DD, ví dụ 2026-05-21): ").strip()
@@ -175,7 +147,6 @@ def input_date_required(label: str) -> date:
             return parse_date(value)
         except Exception:
             print("⚠️  Ngày không hợp lệ. Vui lòng nhập đúng định dạng YYYY-MM-DD.")
-
 
 def input_date_range() -> tuple:
     """Nhập ngày bắt đầu và ngày hết hạn, đảm bảo hết hạn > bắt đầu."""
@@ -186,7 +157,6 @@ def input_date_range() -> tuple:
             print("⚠️  Ngày hết hạn phải lớn hơn ngày bắt đầu. Vui lòng nhập lại.")
             continue
         return start, expiry
-
 
 def input_float_non_negative(label: str, default: float = 0) -> float:
     while True:
@@ -202,7 +172,6 @@ def input_float_non_negative(label: str, default: float = 0) -> float:
         except ValueError:
             print("⚠️  Vui lòng nhập số hợp lệ.")
 
-
 def input_notes() -> str:
     while True:
         notes = input("Ghi chú: ").strip()
@@ -210,11 +179,7 @@ def input_notes() -> str:
             return notes
         print("⚠️  Ghi chú không được vượt quá 500 ký tự.")
 
-
-# ---------------------------------------------------------------------------
-# CÁC THAO TÁC NGHIỆP VỤ CÓ I/O
-# ---------------------------------------------------------------------------
-
+# CÁC THAO TÁC NGHIỆP VỤ
 def add_customer() -> None:
     print("\n" + "─" * 60)
     print("NHẬP THÔNG TIN KHÁCH HÀNG MỚI")
@@ -238,7 +203,6 @@ def add_customer() -> None:
 
     # Mã số thuế: bắt buộc với mọi loại khách hàng
     tax_code = input_tax_code()
-
     product_service         = input_choice_from_list("Sản phẩm cung cấp", PRODUCTS)
     service_package         = input_choice_from_list("Gói dịch vụ", PACKAGES)
     start_date, expiry_date = input_date_range()
@@ -261,7 +225,6 @@ def add_customer() -> None:
         balance=balance,
         notes=notes,
     )
-
     errors = validate_customer_record(record, customers)
     if errors:
         print_validation_errors(errors)
@@ -271,7 +234,6 @@ def add_customer() -> None:
     save_customers(customers)
     print(f"\n✅  Thêm khách hàng thành công! Mã: {next_id}")
     show_customer_detail(record)
-
 
 def delete_customer() -> None:
     print("\n" + "─" * 60)
@@ -287,7 +249,6 @@ def delete_customer() -> None:
         print(f"✅  {msg}")
     else:
         print(f"⚠️  {msg}")
-
 
 def update_customer_cli() -> None:
     print("\n" + "─" * 60)
@@ -430,7 +391,6 @@ def update_customer_cli() -> None:
         is_deleted=old.get("is_deleted", False),
         deleted_at=old.get("deleted_at"),
     )
-
     errors = validate_customer_record(updated_record, customers, current_id=old.get("customer_id"))
     if errors:
         print_validation_errors(errors)
@@ -444,7 +404,6 @@ def update_customer_cli() -> None:
     save_customers(customers)
     print("\n✅  Cập nhật thành công!")
     show_customer_detail(updated_record)
-
 
 def search_customers_cli() -> None:
     print("\n" + "─" * 60)
@@ -481,7 +440,6 @@ def search_customers_cli() -> None:
         else:
             print("⚠️  Mã không nằm trong kết quả tìm kiếm.")
 
-
 def list_customers_cli() -> None:
     print("\n" + "─" * 60)
     print("XEM DANH SÁCH KHÁCH HÀNG")
@@ -503,11 +461,7 @@ def list_customers_cli() -> None:
             else:
                 print("⚠️  Không tìm thấy mã trong danh sách đang hiển thị.")
 
-
-# ---------------------------------------------------------------------------
 # MENU CHÍNH
-# ---------------------------------------------------------------------------
-
 def print_menu() -> None:
     print("\n" + "═" * 65)
     print("     CHƯƠNG TRÌNH QUẢN LÝ KHÁCH HÀNG MISA")
@@ -519,7 +473,6 @@ def print_menu() -> None:
     print("  5. Xem danh sách khách hàng")
     print("  0. Thoát")
     print("═" * 65)
-
 
 def main_menu() -> None:
     while True:
@@ -541,7 +494,6 @@ def main_menu() -> None:
             break
         else:
             print("⚠️  Lựa chọn không hợp lệ.")
-
 
 if __name__ == "__main__":
     main_menu()

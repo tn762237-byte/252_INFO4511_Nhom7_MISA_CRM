@@ -247,6 +247,7 @@ Trong tương lai, hệ thống có thể được phát triển thêm các ch�
 **Nhóm 7**  
 Học phần: **Lập trình Python**  
 Đề tài: **Xây dựng chương trình quản lý khách hàng của Công ty Cổ phần MISA**
+
 Trưởng nhóm: **Nguyễn Thu Hà** 
 
 ---

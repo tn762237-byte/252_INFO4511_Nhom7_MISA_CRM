@@ -1,12 +1,20 @@
 """
-app.py
-======
-Giao diện web Streamlit quản lý khách hàng MISA.
+app.py – Giao diện Streamlit quản lý khách hàng MISA (phiên bản tổng hợp)
+=========================================================================
 Chạy: streamlit run app.py
 
-Mọi logic nghiệp vụ đều gọi từ modules/customer_service.py.
-File này chỉ chịu trách nhiệm về UI và trạng thái session.
+Ưu điểm tổng hợp từ v1 + v2:
+- Reset form bằng form_version key (v2) — không cần danh sách key thủ công (v1)
+- Chọn KH bằng text input + bảng tham khảo (v2) — thay dropdown (v1)
+- Xem danh sách dùng st.data_editor + checkbox (v2)
+- Validation realtime gọi trực tiếp phone_is_valid / email_is_valid / tax_code_is_valid (rõ ràng hơn)
+- Mã số thuế BẮT BUỘC với mọi loại khách hàng
+- Tất cả dịch vụ đều có thời hạn (bỏ "vĩnh viễn" theo customer_service mới)
+- Flash message toàn cục (v1) + inline success (v2)
+- Thống kê nhanh 4 metric ở màn hình danh sách (v1)
 """
+
+from __future__ import annotations
 
 from datetime import date, timedelta
 from typing import Any, Dict, List
@@ -22,43 +30,59 @@ from modules.customer_service import (
     active_customers,
     build_customer_record,
     customers_to_rows,
+    email_is_valid,
     enrich_customer,
     find_customer_by_id,
     generate_next_customer_id,
+    parse_date,
+    phone_is_valid,
     search_customers,
     soft_delete_customer,
-    validate_customer_record,
-    phone_is_valid,
-    email_is_valid,
     tax_code_is_valid,
+    validate_customer_record,
 )
 from modules.storage import load_customers, save_customers
 
 
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 # CẤU HÌNH TRANG
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 
 st.set_page_config(page_title="Quản lý khách hàng MISA", layout="wide")
 
 st.markdown(
     """
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+
+        html, body, [class*="css"] { font-family: 'Be Vietnam Pro', sans-serif; }
+
         .main-title {
-            background: linear-gradient(90deg, #0052cc, #0078d4);
+            background: linear-gradient(90deg, #0052cc 0%, #0078d4 100%);
             color: white;
-            padding: 18px 24px;
-            border-radius: 12px;
+            padding: 20px 28px;
+            border-radius: 14px;
             text-align: center;
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 700;
-            margin-bottom: 18px;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 16px rgba(0,82,204,0.18);
         }
         .section-title {
             color: #0052cc;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
-            margin-bottom: 16px;
+            margin-bottom: 18px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e8f0fe;
+        }
+        .detail-box {
+            background: #f8fbff;
+            border: 1px solid #d6e4f5;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin: 12px 0 18px 0;
         }
         .note-box {
             background: #fff7e6;
@@ -66,24 +90,40 @@ st.markdown(
             border-radius: 10px;
             padding: 12px 16px;
             margin-top: 16px;
+            font-size: 13.5px;
         }
-        .detail-box {
-            background: #f8fbff;
-            border: 1px solid #d6e4f5;
-            border-radius: 12px;
-            padding: 18px 20px;
-            margin-top: 14px;
+        .small-muted {
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.5;
         }
-        .small-muted { color: #64748b; font-size: 13px; }
-        div.stButton > button:first-child { border-radius: 9px; font-weight: 600; }
+        .field-required::after { content: " *"; color: #e53e3e; }
+
+        div.stButton > button:first-child {
+            border-radius: 9px;
+            font-weight: 600;
+            transition: all .15s;
+        }
+        div.stButton > button[kind="primary"] {
+            background: #0052cc;
+            border-color: #0052cc;
+        }
+        div.stButton > button[kind="primary"]:hover {
+            background: #003d99;
+            border-color: #003d99;
+        }
+
+        /* Sidebar */
+        [data-testid="stSidebar"] { background: #f0f4ff; }
+        [data-testid="stSidebar"] .stRadio label { font-weight: 500; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="main-title">QUẢN LÝ KHÁCH HÀNG MISA</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🏢 QUẢN LÝ KHÁCH HÀNG MISA</div>', unsafe_allow_html=True)
 
-# Flash messages toàn cục (dùng cho Cập nhật / Xóa)
+# ─── Flash messages toàn cục ─────────────────────────────────────────────────
 if "flash_success" in st.session_state:
     st.success(st.session_state.pop("flash_success"))
 if "flash_error" in st.session_state:
@@ -92,87 +132,71 @@ if "flash_error" in st.session_state:
 customers: List[Dict[str, Any]] = load_customers()
 
 
-# ---------------------------------------------------------------------------
-# HELPER FUNCTIONS
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
 
-def safe_date(value: Any, default: date | None = None) -> date:
-    """Chuyển chuỗi YYYY-MM-DD sang date; dùng cho st.date_input."""
-    if default is None:
-        default = date.today()
+def safe_date(value: Any, default: date) -> date:
     try:
-        if isinstance(value, date):
-            return value
-        if isinstance(value, str) and value:
-            return date.fromisoformat(value)
+        return parse_date(str(value)) if value else default
     except Exception:
-        pass
-    return default
+        return default
+
+
+def show_error_once(errors: List[str], message: str | None) -> None:
+    """Ghi nhận lỗi và hiển thị ngay, tránh trùng."""
+    if message and message not in errors:
+        errors.append(message)
+        st.error(message)
 
 
 def render_customer_detail(customer: Dict[str, Any]) -> None:
     if not customer:
-        st.info("Chưa có khách hàng để hiển thị chi tiết.")
+        st.info("Chưa có khách hàng để hiển thị.")
         return
     c = enrich_customer(customer)
     st.markdown('<div class="detail-box">', unsafe_allow_html=True)
     left, right = st.columns(2)
     with left:
-        st.write(f"**Mã khách hàng:** {c.get('customer_id', '')}")
-        st.write(f"**Tên khách hàng:** {c.get('customer_name', '')}")
-        st.write(f"**Loại khách hàng:** {c.get('customer_type', '')}")
-        st.write(f"**Số điện thoại:** {c.get('phone', '')}")
-        st.write(f"**Email:** {c.get('email', '')}")
-        st.write(f"**Địa chỉ:** {c.get('address', '')}")
-        st.write(f"**Người đại diện:** {c.get('representative') or '—'}")
-        st.write(f"**Mã số thuế:** {c.get('tax_code') or '—'}")
+        for lbl, key in [
+            ("Mã khách hàng",   "customer_id"),
+            ("Tên khách hàng",  "customer_name"),
+            ("Loại khách hàng", "customer_type"),
+            ("Số điện thoại",   "phone"),
+            ("Email",           "email"),
+            ("Địa chỉ",         "address"),
+            ("Người đại diện",  "representative"),
+            ("Mã số thuế",      "tax_code"),
+        ]:
+            st.write(f"**{lbl}:** {c.get(key) or '—'}")
     with right:
-        st.write(f"**Sản phẩm:** {c.get('product_service', '')}")
-        st.write(f"**Gói dịch vụ:** {c.get('service_package', '')}")
-        st.write(f"**Ngày bắt đầu:** {c.get('start_date', '')}")
-        st.write(f"**Ngày hết hạn:** {c.get('expiry_date', '')}")
-        st.write(f"**Trạng thái dịch vụ:** {c.get('service_status', '')}")
-        st.write(f"**Trạng thái thanh toán:** {c.get('payment_status', '')}")
+        for lbl, key in [
+            ("Sản phẩm",               "product_service"),
+            ("Gói dịch vụ",            "service_package"),
+            ("Ngày bắt đầu",           "start_date"),
+            ("Ngày hết hạn",           "expiry_date"),
+            ("Trạng thái dịch vụ",     "service_status"),
+            ("Trạng thái thanh toán",  "payment_status"),
+        ]:
+            st.write(f"**{lbl}:** {c.get(key) or '—'}")
         st.write(f"**Công nợ:** {float(c.get('balance', 0) or 0):,.0f} VND")
-    st.write(f"**Ghi chú:** {c.get('notes', '') or '—'}")
-    st.write(
-        f"**Tạo lúc:** {c.get('created_at', '')} | "
-        f"**Cập nhật:** {c.get('updated_at', '')} | "
-        f"**Xóa lúc:** {c.get('deleted_at') or '—'}"
+    if c.get("notes"):
+        st.write(f"**Ghi chú:** {c['notes']}")
+    st.markdown(
+        f"<div class='small-muted'>Tạo: {c.get('created_at','')} &nbsp;|&nbsp; "
+        f"Cập nhật: {c.get('updated_at','')} &nbsp;|&nbsp; "
+        f"Xóa: {c.get('deleted_at') or '—'}</div>",
+        unsafe_allow_html=True,
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def show_error_once(live_errors: List[str], message: str) -> None:
-    """Hiển thị lỗi tức thời và ghi nhận để chặn lưu."""
-    if message not in live_errors:
-        live_errors.append(message)
-    st.error(message)
-
-
-# ---------------------------------------------------------------------------
-# QUẢN LÝ FORM THÊM MỚI
-# ---------------------------------------------------------------------------
-
-ADD_FORM_KEYS = [
-    "add_customer_name", "add_customer_type", "add_phone", "add_email",
-    "add_address", "add_representative", "add_tax_code", "add_product",
-    "add_package", "add_start_date", "add_expiry_date", "add_balance", "add_notes",
-]
-
-
-def reset_add_form_if_needed() -> None:
-    if st.session_state.pop("reset_add_form", False):
-        for key in ADD_FORM_KEYS:
-            st.session_state.pop(key, None)
-
-
-# ---------------------------------------------------------------------------
-# SIDEBAR MENU
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
+# SIDEBAR
+# ─────────────────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("## MISA")
+    st.markdown("## 🔷 MISA")
     st.markdown("### Menu chức năng")
     menu = st.radio(
         "Chọn chức năng",
@@ -185,114 +209,127 @@ with st.sidebar:
         ],
         label_visibility="collapsed",
     )
+    st.divider()
+    active_count = len(active_customers(customers))
+    st.metric("Khách hàng đang hoạt động", active_count)
 
-reset_add_form_if_needed()
 
-
-# ===========================================================================
+# =============================================================================
 # 1. NHẬP THÔNG TIN KHÁCH HÀNG
-# ===========================================================================
+# =============================================================================
 
 if menu == "Nhập thông tin khách hàng":
     st.markdown('<div class="section-title">Nhập thông tin khách hàng</div>', unsafe_allow_html=True)
 
+    # Dùng form_version để reset tất cả widget sau khi lưu thành công
+    fv = st.session_state.get("add_form_version", 0)
     new_id = generate_next_customer_id(customers)
-    st.info(f"Mã khách hàng được sinh tự động: **{new_id}**")
     live_errors: List[str] = []
 
+    st.info(f"Mã khách hàng được sinh tự động: **{new_id}**")
+
+    # ── 1. Thông tin định danh ─────────────────────────────────────────────
     st.subheader("1. Thông tin định danh và liên hệ")
 
-    r1c1, r1c2, r1c3 = st.columns(3)
-    with r1c1:
-        customer_name = st.text_input("Tên khách hàng *", placeholder="Nhập tên khách hàng", key="add_customer_name")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.text_input("Mã khách hàng", value=new_id, disabled=True, key=f"add_id_{fv}")
+    with c2:
+        customer_name = st.text_input(
+            "Tên khách hàng *", placeholder="Nhập tên khách hàng", key=f"add_name_{fv}"
+        )
         if customer_name and len(customer_name.strip()) < 2:
             show_error_once(live_errors, "Tên khách hàng phải có ít nhất 2 ký tự.")
-    with r1c2:
-        customer_type = st.selectbox("Loại khách hàng *", CUSTOMER_TYPES, key="add_customer_type")
-    with r1c3:
-        phone = st.text_input("Số điện thoại *", placeholder="Ví dụ: 0912345678", max_chars=10, key="add_phone")
+    with c3:
+        customer_type = st.selectbox("Loại khách hàng *", CUSTOMER_TYPES, key=f"add_type_{fv}")
+
+    c4, c5, c6 = st.columns(3)
+    with c4:
+        phone = st.text_input(
+            "Số điện thoại *", placeholder="Ví dụ: 0912345678", max_chars=10, key=f"add_phone_{fv}"
+        )
         if phone and not phone_is_valid(phone):
             show_error_once(live_errors, "Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng số 0.")
-
-    r2c1, r2c2, r2c3 = st.columns(3)
-    with r2c1:
-        # Email bắt buộc
-        email = st.text_input("Email *", placeholder="Ví dụ: abc@gmail.com", key="add_email")
+    with c5:
+        email = st.text_input(
+            "Email *", placeholder="Ví dụ: abc@gmail.com", key=f"add_email_{fv}"
+        )
         if email and not email_is_valid(email):
             show_error_once(live_errors, "Email không đúng định dạng (ví dụ: abc@gmail.com).")
-    with r2c2:
-        address = st.text_input("Địa chỉ *", placeholder="Nhập địa chỉ", max_chars=250, key="add_address")
+    with c6:
+        address = st.text_input(
+            "Địa chỉ *", placeholder="Nhập địa chỉ", max_chars=250, key=f"add_addr_{fv}"
+        )
         if address and len(address.strip()) < 5:
             show_error_once(live_errors, "Địa chỉ cần có ít nhất 5 ký tự.")
-    with r2c3:
+
+    c7, c8, c9 = st.columns(3)
+    with c7:
         representative = st.text_input(
-            "Người đại diện",
+            "Người đại diện" + (" *" if customer_type == "Doanh nghiệp" else ""),
             placeholder="Bắt buộc nếu là Doanh nghiệp",
-            key="add_representative",
+            key=f"add_rep_{fv}",
         )
         if customer_type == "Doanh nghiệp" and not representative.strip():
             st.warning("Khách hàng Doanh nghiệp bắt buộc nhập người đại diện.")
-
-    r3c1, r3c2, r3c3 = st.columns(3)
-    with r3c1:
+    with c8:
         tax_code = st.text_input(
-            "Mã số thuế",
+            "Mã số thuế *",
             placeholder="10, 12 hoặc 13 chữ số",
-            key="add_tax_code",
+            key=f"add_tax_{fv}",
         )
-        if tax_code and not tax_code_is_valid(tax_code):
+
+        if not tax_code_is_valid(tax_code):
             show_error_once(live_errors, "Mã số thuế phải gồm 10, 12 hoặc 13 chữ số.")
-        if customer_type == "Doanh nghiệp" and not tax_code.strip():
-            st.warning("Khách hàng Doanh nghiệp bắt buộc nhập mã số thuế.")
-    with r3c2:
+    with c9:
         st.markdown(
-            "<div class='small-muted'>Với khách hàng Cá nhân, người đại diện và mã số thuế có thể để trống.</div>",
+            "<div class='small-muted' style='margin-top:32px'>Mã số thuế là bắt buộc với mọi loại khách hàng.</div>",
             unsafe_allow_html=True,
         )
 
+    # ── 2. Thông tin dịch vụ ──────────────────────────────────────────────
     st.subheader("2. Thông tin dịch vụ")
 
     d1, d2 = st.columns(2)
     with d1:
-        product_service = st.selectbox("Sản phẩm cung cấp *", PRODUCTS, key="add_product")
+        product_service = st.selectbox("Sản phẩm cung cấp *", PRODUCTS, key=f"add_prod_{fv}")
     with d2:
-        service_package = st.selectbox("Gói dịch vụ *", PACKAGES, key="add_package")
+        service_package = st.selectbox("Gói dịch vụ *", PACKAGES, key=f"add_pkg_{fv}")
 
     t1, t2, t3 = st.columns(3)
     with t1:
-        start_date = st.date_input("Ngày bắt đầu *", value=date.today(), key="add_start_date")
+        start_date = st.date_input("Ngày bắt đầu *", value=date.today(), key=f"add_start_{fv}")
     with t2:
         expiry_date = st.date_input(
             "Ngày hết hạn *",
             value=date.today() + timedelta(days=365),
-            key="add_expiry_date",
+            key=f"add_expiry_{fv}",
         )
     with t3:
         if expiry_date <= start_date:
             show_error_once(live_errors, "Ngày hết hạn phải lớn hơn ngày bắt đầu.")
         else:
             days_left = (expiry_date - date.today()).days
-            st.success(f"Hợp lệ · còn {days_left} ngày")
+            st.success(f"✓ Hợp lệ · còn {days_left} ngày")
 
+    # ── 3. Thông tin tài chính ────────────────────────────────────────────
     st.subheader("3. Thông tin tài chính")
 
     f1, f2 = st.columns([1, 2])
     with f1:
         balance = st.number_input(
-            "Công nợ (VND)", min_value=0, value=0, step=10000, format="%d", key="add_balance"
+            "Công nợ (VND)", min_value=0, value=0, step=10_000, format="%d", key=f"add_bal_{fv}"
         )
     with f2:
-        notes = st.text_area("Ghi chú", max_chars=500, key="add_notes")
+        notes = st.text_area("Ghi chú", max_chars=500, placeholder="Ghi chú tùy chọn", key=f"add_notes_{fv}")
 
-    save_clicked = st.button("Lưu khách hàng", type="primary")
-    add_message_area = st.empty()
+    save_clicked = st.button("💾 Lưu khách hàng", type="primary")
+    msg_area = st.empty()
 
-    if "add_flash_success" in st.session_state:
-        add_message_area.success(st.session_state.pop("add_flash_success"))
+    if "add_success_msg" in st.session_state:
+        msg_area.success(st.session_state.pop("add_success_msg"))
 
     if save_clicked:
-        # Xóa lỗi "Email trống" tạm thời khi người dùng chưa chạm vào trường
-        # rồi mới bấm Lưu — validate_customer_record sẽ bắt đầy đủ
         record = build_customer_record(
             customer_id=new_id,
             customer_name=customer_name,
@@ -309,25 +346,29 @@ if menu == "Nhập thông tin khách hàng":
             balance=balance,
             notes=notes,
         )
-        errors = validate_customer_record(record, customers)
-        if live_errors:
-            st.error("Vui lòng sửa các lỗi đang hiển thị trước khi lưu.")
-        elif errors:
-            for err in errors:
-                st.error(err)
+        # Bắt buộc mã số thuế ở mọi loại KH
+        if not tax_code.strip():
+            st.error("Mã số thuế không được để trống.")
         else:
-            customers.append(record)
-            save_customers(customers)
-            st.session_state["add_flash_success"] = (
-                f"Thêm khách hàng {new_id} thành công! Dữ liệu đã được lưu."
-            )
-            st.session_state["reset_add_form"] = True
-            st.rerun()
+            backend_errors = validate_customer_record(record, customers)
+            if live_errors:
+                st.error("Vui lòng sửa các lỗi đang hiển thị trước khi lưu.")
+            elif backend_errors:
+                for err in backend_errors:
+                    st.error(err)
+            else:
+                customers.append(record)
+                save_customers(customers)
+                st.session_state["add_success_msg"] = (
+                    f"✅ Thêm khách hàng **{new_id}** thành công! Dữ liệu đã được lưu."
+                )
+                st.session_state["add_form_version"] = fv + 1
+                st.rerun()
 
 
-# ===========================================================================
+# =============================================================================
 # 2. CẬP NHẬT THÔNG TIN KHÁCH HÀNG
-# ===========================================================================
+# =============================================================================
 
 elif menu == "Cập nhật thông tin khách hàng":
     st.markdown('<div class="section-title">Cập nhật thông tin khách hàng</div>', unsafe_allow_html=True)
@@ -335,154 +376,202 @@ elif menu == "Cập nhật thông tin khách hàng":
     active_list = [enrich_customer(c) for c in active_customers(customers)]
     if not active_list:
         st.info("Chưa có khách hàng đang hoạt động để cập nhật.")
-    else:
-        selected = st.selectbox(
-            "Chọn khách hàng cần cập nhật",
-            [f"{c['customer_id']} - {c['customer_name']}" for c in active_list],
+        st.stop()
+
+    st.caption("Nhập mã khách hàng cần cập nhật. Bảng bên dưới để tham khảo mã.")
+    st.dataframe(
+        pd.DataFrame(customers_to_rows(active_list)),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    selected_id = st.text_input(
+        "Mã khách hàng cần cập nhật *",
+        placeholder="Ví dụ: KH001",
+        key="upd_id_input",
+    ).strip().upper()
+
+    if not selected_id:
+        st.info("Vui lòng nhập mã khách hàng để tiếp tục.")
+        st.stop()
+
+    current = find_customer_by_id(customers, selected_id)
+    if not current:
+        st.error("Không tìm thấy khách hàng với mã đã nhập.")
+        st.stop()
+    if current.get("is_deleted"):
+        st.warning("Khách hàng này đã bị xóa mềm, không thể cập nhật.")
+        st.stop()
+
+    c = enrich_customer(current)
+    render_customer_detail(c)
+
+    st.subheader("Chỉnh sửa thông tin")
+    upd_errors: List[str] = []
+
+    # ── Thông tin định danh ────────────────────────────────────────────────
+    u1, u2, u3 = st.columns(3)
+    with u1:
+        st.text_input("Mã khách hàng", value=c["customer_id"], disabled=True, key=f"upd_id_{selected_id}")
+    with u2:
+        customer_name = st.text_input(
+            "Tên khách hàng *", value=c.get("customer_name", ""), key=f"upd_name_{selected_id}"
         )
-        selected_id = selected.split(" - ")[0]
-        current     = find_customer_by_id(customers, selected_id)
+        if customer_name and len(customer_name.strip()) < 2:
+            show_error_once(upd_errors, "Tên khách hàng phải có ít nhất 2 ký tự.")
+    with u3:
+        customer_type = st.selectbox(
+            "Loại khách hàng *",
+            CUSTOMER_TYPES,
+            index=CUSTOMER_TYPES.index(c["customer_type"]) if c.get("customer_type") in CUSTOMER_TYPES else 0,
+            key=f"upd_type_{selected_id}",
+        )
 
-        if current:
-            c = enrich_customer(current)
-            render_customer_detail(c)
+    u4, u5, u6 = st.columns(3)
+    with u4:
+        phone = st.text_input(
+            "Số điện thoại *", value=c.get("phone", ""), max_chars=10, key=f"upd_phone_{selected_id}"
+        )
+        if phone and not phone_is_valid(phone):
+            show_error_once(upd_errors, "Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng số 0.")
+    with u5:
+        email = st.text_input(
+            "Email *", value=c.get("email", ""), key=f"upd_email_{selected_id}"
+        )
+        if not email:
+            show_error_once(upd_errors, "Email không được để trống.")
+        elif not email_is_valid(email):
+            show_error_once(upd_errors, "Email không đúng định dạng.")
+    with u6:
+        address = st.text_input(
+            "Địa chỉ *", value=c.get("address", ""), max_chars=250, key=f"upd_addr_{selected_id}"
+        )
+        if address and len(address.strip()) < 5:
+            show_error_once(upd_errors, "Địa chỉ cần có ít nhất 5 ký tự.")
 
-            st.subheader("Chỉnh sửa thông tin")
-            update_live_errors: List[str] = []
+    u7, u8, u9 = st.columns(3)
+    with u7:
+        representative = st.text_input(
+            "Người đại diện" + (" *" if customer_type == "Doanh nghiệp" else ""),
+            value=c.get("representative") or "",
+            key=f"upd_rep_{selected_id}",
+        )
+        if customer_type == "Doanh nghiệp" and not representative.strip():
+            st.warning("Khách hàng Doanh nghiệp bắt buộc nhập người đại diện.")
+    with u8:
+        tax_code = st.text_input(
+            "Mã số thuế *",
+            value=c.get("tax_code") or "",
+            key=f"upd_tax_{selected_id}",
+        )
+        if not tax_code.strip():
+            show_error_once(upd_errors, "Mã số thuế không được để trống.")
+        elif not tax_code_is_valid(tax_code):
+            show_error_once(upd_errors, "Mã số thuế phải gồm 10, 12 hoặc 13 chữ số.")
+    with u9:
+        st.markdown(
+            "<div class='small-muted' style='margin-top:32px'>Mã khách hàng bị khóa để bảo đảm truy vết.</div>",
+            unsafe_allow_html=True,
+        )
 
-            u1, u2, u3 = st.columns(3)
-            with u1:
-                st.text_input("Mã khách hàng", value=c.get("customer_id", ""), disabled=True, key=f"upd_id_{selected_id}")
-            with u2:
-                customer_name = st.text_input("Tên khách hàng *", value=c.get("customer_name", ""), key=f"upd_name_{selected_id}")
-                if customer_name and len(customer_name.strip()) < 2:
-                    show_error_once(update_live_errors, "Tên khách hàng phải có ít nhất 2 ký tự.")
-            with u3:
-                customer_type = st.selectbox(
-                    "Loại khách hàng *",
-                    CUSTOMER_TYPES,
-                    index=CUSTOMER_TYPES.index(c.get("customer_type", "Cá nhân"))
-                          if c.get("customer_type") in CUSTOMER_TYPES else 0,
-                    key=f"upd_type_{selected_id}",
+    # ── Thông tin dịch vụ ─────────────────────────────────────────────────
+    st.subheader("Thông tin dịch vụ")
+
+    p1, p2 = st.columns(2)
+    with p1:
+        product_service = st.selectbox(
+            "Sản phẩm cung cấp *",
+            PRODUCTS,
+            index=PRODUCTS.index(c["product_service"]) if c.get("product_service") in PRODUCTS else 0,
+            key=f"upd_prod_{selected_id}",
+        )
+    with p2:
+        service_package = st.selectbox(
+            "Gói dịch vụ *",
+            PACKAGES,
+            index=PACKAGES.index(c["service_package"]) if c.get("service_package") in PACKAGES else 0,
+            key=f"upd_pkg_{selected_id}",
+        )
+
+    p3, p4, p5 = st.columns(3)
+    with p3:
+        start_date = st.date_input(
+            "Ngày bắt đầu *",
+            value=safe_date(c.get("start_date"), date.today()),
+            key=f"upd_start_{selected_id}",
+        )
+    with p4:
+        expiry_date = st.date_input(
+            "Ngày hết hạn *",
+            value=safe_date(c.get("expiry_date"), date.today() + timedelta(days=365)),
+            key=f"upd_expiry_{selected_id}",
+        )
+    with p5:
+        if expiry_date <= start_date:
+            show_error_once(upd_errors, "Ngày hết hạn phải lớn hơn ngày bắt đầu.")
+        else:
+            days_left = (expiry_date - date.today()).days
+            st.success(f"✓ Còn {days_left} ngày")
+
+    # ── Thông tin tài chính ───────────────────────────────────────────────
+    st.subheader("Thông tin tài chính")
+
+    b1, b2 = st.columns([1, 2])
+    with b1:
+        balance = st.number_input(
+            "Công nợ (VND)",
+            min_value=0,
+            value=int(float(c.get("balance", 0) or 0)),
+            step=10_000,
+            format="%d",
+            key=f"upd_bal_{selected_id}",
+        )
+    with b2:
+        notes = st.text_area(
+            "Ghi chú", value=c.get("notes", ""), max_chars=500, key=f"upd_notes_{selected_id}"
+        )
+
+    if st.button("✏️ Cập nhật khách hàng", type="primary"):
+        if not tax_code.strip():
+            st.error("Mã số thuế không được để trống.")
+        else:
+            updated = build_customer_record(
+                customer_id=current["customer_id"],
+                customer_name=customer_name,
+                customer_type=customer_type,
+                phone=phone,
+                email=email,
+                address=address,
+                representative=representative,
+                tax_code=tax_code,
+                product_service=product_service,
+                service_package=service_package,
+                start_date_value=start_date,
+                expiry_date_value=expiry_date,
+                balance=balance,
+                notes=notes,
+                created_at=current.get("created_at"),
+                is_deleted=current.get("is_deleted", False),
+                deleted_at=current.get("deleted_at"),
+            )
+            backend_errors = validate_customer_record(updated, customers, current_id=current["customer_id"])
+            if upd_errors:
+                st.error("Vui lòng sửa các lỗi đang hiển thị trước khi cập nhật.")
+            elif backend_errors:
+                for err in backend_errors:
+                    st.error(err)
+            else:
+                current.update(updated)
+                save_customers(customers)
+                st.session_state["flash_success"] = (
+                    f"✅ Cập nhật khách hàng **{selected_id}** thành công!"
                 )
-
-            u4, u5, u6 = st.columns(3)
-            with u4:
-                phone = st.text_input("Số điện thoại *", value=c.get("phone", ""), max_chars=10, key=f"upd_phone_{selected_id}")
-                if phone and not phone_is_valid(phone):
-                    show_error_once(update_live_errors, "Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng số 0.")
-            with u5:
-                email = st.text_input("Email *", value=c.get("email", ""), key=f"upd_email_{selected_id}")
-                if not email:
-                    show_error_once(update_live_errors, "Email không được để trống.")
-                elif not email_is_valid(email):
-                    show_error_once(update_live_errors, "Email không đúng định dạng.")
-            with u6:
-                address = st.text_input("Địa chỉ *", value=c.get("address", ""), max_chars=250, key=f"upd_addr_{selected_id}")
-                if address and len(address.strip()) < 5:
-                    show_error_once(update_live_errors, "Địa chỉ cần có ít nhất 5 ký tự.")
-
-            u7, u8, u9 = st.columns(3)
-            with u7:
-                representative = st.text_input("Người đại diện", value=c.get("representative") or "", key=f"upd_rep_{selected_id}")
-                if customer_type == "Doanh nghiệp" and not representative.strip():
-                    st.warning("Khách hàng Doanh nghiệp bắt buộc nhập người đại diện.")
-            with u8:
-                tax_code = st.text_input("Mã số thuế", value=c.get("tax_code") or "", key=f"upd_tax_{selected_id}")
-                if tax_code and not tax_code_is_valid(tax_code):
-                    show_error_once(update_live_errors, "Mã số thuế phải gồm 10, 12 hoặc 13 chữ số.")
-                if customer_type == "Doanh nghiệp" and not tax_code.strip():
-                    st.warning("Khách hàng Doanh nghiệp bắt buộc nhập mã số thuế.")
-            with u9:
-                st.markdown(
-                    "<div class='small-muted'>Mã khách hàng được khóa để bảo đảm truy vết dữ liệu.</div>",
-                    unsafe_allow_html=True,
-                )
-
-            st.subheader("Thông tin dịch vụ")
-
-            p1, p2 = st.columns(2)
-            with p1:
-                product_service = st.selectbox(
-                    "Sản phẩm cung cấp *",
-                    PRODUCTS,
-                    index=PRODUCTS.index(c.get("product_service")) if c.get("product_service") in PRODUCTS else 0,
-                    key=f"upd_prod_{selected_id}",
-                )
-            with p2:
-                service_package = st.selectbox(
-                    "Gói dịch vụ *",
-                    PACKAGES,
-                    index=PACKAGES.index(c.get("service_package")) if c.get("service_package") in PACKAGES else 0,
-                    key=f"upd_pkg_{selected_id}",
-                )
-
-            old_start  = safe_date(c.get("start_date", ""),  date.today())
-            old_expiry = safe_date(c.get("expiry_date", ""), date.today() + timedelta(days=365))
-
-            p3, p4, p5 = st.columns(3)
-            with p3:
-                start_date = st.date_input("Ngày bắt đầu *", value=old_start, key=f"upd_start_{selected_id}")
-            with p4:
-                expiry_date = st.date_input("Ngày hết hạn *", value=old_expiry, key=f"upd_expiry_{selected_id}")
-            with p5:
-                if expiry_date <= start_date:
-                    show_error_once(update_live_errors, "Ngày hết hạn phải lớn hơn ngày bắt đầu.")
-                else:
-                    days_left = (expiry_date - date.today()).days
-                    st.success(f"Hợp lệ · còn {days_left} ngày")
-
-            st.subheader("Thông tin tài chính")
-
-            b1, b2 = st.columns([1, 2])
-            with b1:
-                balance = st.number_input(
-                    "Công nợ (VND)",
-                    min_value=0,
-                    value=int(float(c.get("balance", 0) or 0)),
-                    step=10000,
-                    format="%d",
-                    key=f"upd_bal_{selected_id}",
-                )
-            with b2:
-                notes = st.text_area("Ghi chú", value=c.get("notes", ""), max_chars=500, key=f"upd_notes_{selected_id}")
-
-            if st.button("Cập nhật khách hàng", type="primary"):
-                updated_record = build_customer_record(
-                    customer_id=current.get("customer_id", ""),
-                    customer_name=customer_name,
-                    customer_type=customer_type,
-                    phone=phone,
-                    email=email,
-                    address=address,
-                    representative=representative,
-                    tax_code=tax_code,
-                    product_service=product_service,
-                    service_package=service_package,
-                    start_date_value=start_date,
-                    expiry_date_value=expiry_date,
-                    balance=balance,
-                    notes=notes,
-                    created_at=current.get("created_at"),
-                    is_deleted=current.get("is_deleted", False),
-                    deleted_at=current.get("deleted_at"),
-                )
-                errors = validate_customer_record(updated_record, customers, current_id=current.get("customer_id"))
-                if update_live_errors:
-                    st.error("Vui lòng sửa các lỗi đang hiển thị trước khi cập nhật.")
-                elif errors:
-                    for err in errors:
-                        st.error(err)
-                else:
-                    current.update(updated_record)
-                    save_customers(customers)
-                    st.session_state["flash_success"] = "Cập nhật khách hàng thành công!"
-                    st.rerun()
+                st.rerun()
 
 
-# ===========================================================================
+# =============================================================================
 # 3. TÌM KIẾM THÔNG TIN KHÁCH HÀNG
-# ===========================================================================
+# =============================================================================
 
 elif menu == "Tìm kiếm thông tin khách hàng":
     st.markdown('<div class="section-title">Tìm kiếm thông tin khách hàng</div>', unsafe_allow_html=True)
@@ -495,31 +584,28 @@ elif menu == "Tìm kiếm thông tin khách hàng":
     with f3:
         include_deleted = st.checkbox("Bao gồm đã xóa")
 
-    if st.button("Tìm kiếm", type="primary"):
+    if st.button("🔍 Tìm kiếm", type="primary"):
         results, message = search_customers(customers, keyword, status_filter, include_deleted)
         if message and not results:
-            if "Tìm thấy" in message:
-                st.warning(message)
-            else:
-                st.info(message)
+            st.warning(message) if "Tìm thấy" in message else st.info(message)
         else:
-            st.markdown(f"#### Kết quả tìm kiếm: {len(results)} bản ghi")
+            st.markdown(f"#### Kết quả: {len(results)} bản ghi")
             st.dataframe(
                 pd.DataFrame(customers_to_rows(results)),
                 use_container_width=True,
                 hide_index=True,
             )
             chosen = st.selectbox(
-                "Xem chi tiết kết quả",
-                [f"{c['customer_id']} - {c['customer_name']}" for c in results],
+                "Xem chi tiết",
+                [f"{c['customer_id']} – {c['customer_name']}" for c in results],
             )
-            chosen_id = chosen.split(" - ")[0]
+            chosen_id = chosen.split(" – ")[0]
             render_customer_detail(find_customer_by_id(results, chosen_id) or results[0])
 
 
-# ===========================================================================
+# =============================================================================
 # 4. XÓA THÔNG TIN KHÁCH HÀNG
-# ===========================================================================
+# =============================================================================
 
 elif menu == "Xóa thông tin khách hàng":
     st.markdown('<div class="section-title">Xóa thông tin khách hàng</div>', unsafe_allow_html=True)
@@ -527,74 +613,135 @@ elif menu == "Xóa thông tin khách hàng":
     active_list = [enrich_customer(c) for c in active_customers(customers)]
     if not active_list:
         st.info("Không có khách hàng đang hoạt động để xóa.")
-    else:
-        selected = st.selectbox(
-            "Chọn khách hàng cần xóa",
-            [f"{c['customer_id']} - {c['customer_name']}" for c in active_list],
-        )
-        selected_id      = selected.split(" - ")[0]
-        selected_customer = find_customer_by_id(customers, selected_id)
-        if selected_customer:
-            render_customer_detail(enrich_customer(selected_customer))
+        st.stop()
 
-        st.warning(
-            "Hệ thống sử dụng cơ chế xóa mềm. "
-            "Khách hàng đang Hoạt động / Sắp hết hạn hoặc còn công nợ sẽ không được xóa."
-        )
-        confirm = st.checkbox("Tôi xác nhận muốn xóa khách hàng này")
+    st.caption("Nhập mã khách hàng cần xóa. Bảng bên dưới để tham khảo.")
+    st.dataframe(
+        pd.DataFrame(customers_to_rows(active_list)),
+        use_container_width=True,
+        hide_index=True,
+    )
 
-        if st.button("Xóa khách hàng", type="primary"):
-            if not confirm:
-                st.error("Vui lòng tick xác nhận trước khi xóa.")
+    delete_id = st.text_input(
+        "Mã khách hàng cần xóa *",
+        placeholder="Ví dụ: KH001",
+        key="del_id_input",
+    ).strip().upper()
+
+    if not delete_id:
+        st.info("Vui lòng nhập mã khách hàng để thực hiện xóa mềm.")
+        st.stop()
+
+    selected_customer = find_customer_by_id(active_list, delete_id)
+    if not selected_customer:
+        gone = find_customer_by_id(customers, delete_id)
+        if gone and gone.get("is_deleted"):
+            st.warning("Khách hàng này đã bị xóa trước đó.")
+        else:
+            st.error("Không tìm thấy khách hàng đang hoạt động với mã đã nhập.")
+        st.stop()
+
+    render_customer_detail(selected_customer)
+
+    st.warning(
+        "⚠️ Hệ thống dùng **xóa mềm**. Khách hàng đang Hoạt động, Sắp hết hạn hoặc còn công nợ sẽ không được xóa."
+    )
+    confirm = st.checkbox("Tôi xác nhận muốn xóa khách hàng này")
+
+    if st.button("🗑️ Xóa khách hàng", type="primary"):
+        if not confirm:
+            st.error("Vui lòng tick xác nhận trước khi xóa.")
+        else:
+            ok, msg = soft_delete_customer(customers, delete_id)
+            if ok:
+                save_customers(customers)
+                st.session_state["flash_success"] = msg
+                st.rerun()
             else:
-                ok, msg = soft_delete_customer(customers, selected_id)
-                if ok:
-                    save_customers(customers)
-                    st.session_state["flash_success"] = msg
-                    st.rerun()
-                else:
-                    st.error(msg)
+                st.error(msg)
 
 
-# ===========================================================================
+# =============================================================================
 # 5. XEM DANH SÁCH THÔNG TIN KHÁCH HÀNG
-# ===========================================================================
+# =============================================================================
 
 elif menu == "Xem danh sách thông tin khách hàng":
-    st.markdown('<div class="section-title">Xem danh sách thông tin khách hàng</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Danh sách khách hàng</div>', unsafe_allow_html=True)
 
     active_list = [enrich_customer(c) for c in active_customers(customers)]
     if not active_list:
-        st.info('Không có khách hàng. Vui lòng sử dụng chức năng "Nhập thông tin khách hàng" để thêm dữ liệu.')
+        st.info('Chưa có khách hàng. Dùng "Nhập thông tin khách hàng" để thêm.')
+        st.stop()
+
+    # ── Thống kê nhanh ─────────────────────────────────────────────────────
+    hoat_dong   = sum(1 for c in active_list if c.get("service_status") == "Hoạt động")
+    sap_het_han = sum(1 for c in active_list if c.get("service_status") == "Sắp hết hạn")
+    het_han     = sum(1 for c in active_list if c.get("service_status") == "Hết hạn")
+    co_no       = sum(1 for c in active_list if float(c.get("balance", 0) or 0) > 0)
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Tổng khách hàng",  len(active_list))
+    m2.metric("Đang hoạt động",   hoat_dong)
+    m3.metric("Sắp hết hạn",      sap_het_han,
+              delta=f"-{sap_het_han}" if sap_het_han else None, delta_color="inverse")
+    m4.metric("Có công nợ",       co_no,
+              delta=f"-{co_no}" if co_no else None, delta_color="inverse")
+
+    st.divider()
+
+    # ── Bảng có checkbox chọn để xem chi tiết (từ app_2) ──────────────────
+    rows = customers_to_rows(active_list)
+    valid_ids = {str(r.get("Mã KH", "")) for r in rows}
+
+    _sel_key   = "view_selected_id"
+    _ver_key   = "view_table_ver"
+
+    prev_sel = st.session_state.get(_sel_key)
+    if prev_sel not in valid_ids:
+        prev_sel = None
+        st.session_state[_sel_key] = None
+
+    table_data = [{"Chọn": str(r.get("Mã KH", "")) == prev_sel, **r} for r in rows]
+    tver = st.session_state.get(_ver_key, 0)
+
+    edited = st.data_editor(
+        pd.DataFrame(table_data),
+        use_container_width=True,
+        hide_index=True,
+        disabled=[col for col in pd.DataFrame(table_data).columns if col != "Chọn"],
+        column_config={
+            "Chọn": st.column_config.CheckboxColumn("Chọn", help="Tick để xem chi tiết", default=False)
+        },
+        key=f"view_table_{tver}",
+    )
+
+    sel_rows = edited[edited["Chọn"] == True]
+    sel_ids  = [str(v) for v in sel_rows["Mã KH"].tolist()]
+
+    if not sel_ids:
+        if prev_sel is not None:
+            st.session_state[_sel_key] = None
+            st.session_state[_ver_key] = tver + 1
+            st.rerun()
+        st.info("Tick chọn một khách hàng trong bảng để xem chi tiết.")
     else:
-        # Thống kê nhanh
-        hoat_dong   = sum(1 for c in active_list if c.get("service_status") == "Hoạt động")
-        sap_het_han = sum(1 for c in active_list if c.get("service_status") == "Sắp hết hạn")
-        het_han     = sum(1 for c in active_list if c.get("service_status") == "Hết hạn")
-        co_no       = sum(1 for c in active_list if float(c.get("balance", 0) or 0) > 0)
+        # Luôn hiển thị KH mới nhất được tick
+        if prev_sel in sel_ids and len(sel_ids) > 1:
+            new_sel = [i for i in sel_ids if i != prev_sel][-1]
+        else:
+            new_sel = sel_ids[-1]
 
-        col_a, col_b, col_c, col_d = st.columns(4)
-        col_a.metric("Tổng khách hàng", len(active_list))
-        col_b.metric("Đang hoạt động",  hoat_dong)
-        col_c.metric("Sắp hết hạn",     sap_het_han, delta=f"-{sap_het_han}" if sap_het_han else None, delta_color="inverse")
-        col_d.metric("Có công nợ",       co_no,      delta=f"-{co_no}" if co_no else None, delta_color="inverse")
+        if new_sel != prev_sel or len(sel_ids) > 1:
+            st.session_state[_sel_key] = new_sel
+            st.session_state[_ver_key] = tver + 1
+            st.rerun()
 
-        st.divider()
-        st.dataframe(
-            pd.DataFrame(customers_to_rows(active_list)),
-            use_container_width=True,
-            hide_index=True,
-        )
-
-        chosen = st.selectbox(
-            "Xem chi tiết khách hàng",
-            [f"{c['customer_id']} - {c['customer_name']}" for c in active_list],
-        )
-        chosen_id = chosen.split(" - ")[0]
-        render_customer_detail(find_customer_by_id(active_list, chosen_id) or active_list[0])
+        sel_customer = find_customer_by_id(active_list, new_sel)
+        st.markdown("### Thông tin chi tiết")
+        render_customer_detail(sel_customer or active_list[0])
 
     st.markdown(
-        '<div class="note-box">Chỉ hiển thị khách hàng chưa bị xóa mềm. '
-        'Dùng chức năng Tìm kiếm với tùy chọn "Bao gồm đã xóa" để tra cứu lịch sử.</div>',
+        '<div class="note-box">📌 Chỉ hiển thị khách hàng chưa bị xóa mềm. '
+        'Dùng chức năng <b>Tìm kiếm</b> với tùy chọn "Bao gồm đã xóa" để tra cứu lịch sử.</div>',
         unsafe_allow_html=True,
     )

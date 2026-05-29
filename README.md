@@ -19,7 +19,7 @@ Xây dựng chương trình quản lý khách hàng của Công ty Cổ phần M
 ```text
 252_INFO4511_Nhom7_MISA_CRM
 ├── app.py                      # Giao diện web chính bằng Streamlit
-├── codethuan.py                # Giao diện dòng lệnh Python thuần
+├── main.py                     # Giao diện dòng lệnh Python thuần
 ├── config.toml                 # File cấu hình giao diện Streamlit
 ├── requirements.txt            # Danh sách thư viện cần cài đặt
 ├── README.md                   # Tài liệu mô tả và hướng dẫn sử dụng

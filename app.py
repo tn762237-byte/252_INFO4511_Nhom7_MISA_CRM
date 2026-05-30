@@ -168,9 +168,9 @@ with st.sidebar:
         "Chọn chức năng",
         [
             "Nhập thông tin khách hàng",
+            "Xóa thông tin khách hàng",
             "Cập nhật thông tin khách hàng",
             "Tìm kiếm thông tin khách hàng",
-            "Xóa thông tin khách hàng",
             "Xem danh sách thông tin khách hàng",
         ],
         label_visibility="collapsed",

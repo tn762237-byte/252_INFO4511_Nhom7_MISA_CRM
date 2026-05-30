@@ -88,14 +88,11 @@ def calculate_payment_status(balance: float) -> str:
     """
     - balance == 0   → Đã thanh toán
     - balance > 0    → Chưa thanh toán  (khách còn nợ)
-    - balance < 0    → Đã thanh toán (dư) (công ty nợ khách)
     """
     if balance == 0:
         return "Đã thanh toán"
     if balance > 0:
         return "Chưa thanh toán"
-    return f"Đã thanh toán (Dư: {abs(balance):,.0f} VND)"
-
 
 # NHÓM HÀM LÀM GIÀU DỮ LIỆU
 def enrich_customer(customer: Dict[str, Any]) -> Dict[str, Any]:
@@ -327,7 +324,7 @@ def soft_delete_customer(
     Điều kiện chặn xóa:
     - Không tìm thấy / đã xóa trước đó.
     - Dịch vụ đang "Hoạt động" hoặc "Sắp hết hạn" (vẫn còn hiệu lực).
-    - Còn công nợ (balance != 0).
+    - Còn công nợ (balance > 0).
     """
     customer = find_customer_by_id(customers, customer_id)
     if not customer:
@@ -344,7 +341,7 @@ def soft_delete_customer(
         )
 
     balance = float(c.get("balance", 0) or 0)
-    if balance != 0:
+    if balance > 0:
         return False, (
             f"Không thể xóa vì khách hàng còn công nợ: {balance:,.0f} VND. "
             "Vui lòng xử lý tất toán trước khi xóa."

@@ -1,10 +1,3 @@
-"""
-modules/storage.py
-==================
-Chịu trách nhiệm duy nhất: đọc / ghi file JSON.
-Không chứa logic nghiệp vụ.
-"""
-
 import json
 from pathlib import Path
 from typing import Any, Dict, List
